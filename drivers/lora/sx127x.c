@@ -598,9 +598,7 @@ static int sx127x_lora_init(const struct device *dev)
 		return ret;
 	}
 
-	k_sleep(K_MSEC(100));
-	gpio_pin_set_dt(&dev_config.reset, 0);
-	k_sleep(K_MSEC(100));
+	SX127xReset();
 
 	ret = sx127x_read(REG_VERSION, &regval, 1);
 	if (ret < 0) {
