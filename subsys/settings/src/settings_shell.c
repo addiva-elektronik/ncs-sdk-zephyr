@@ -150,11 +150,78 @@ static int cmd_delete(const struct shell *shell_ptr, size_t argc, char *argv[])
 	return err;
 }
 
+#if CONFIG_SETTINGS_RUNTIME
+
+static int cmd_runtime_get(const struct shell *shell_ptr, size_t argc, char *argv[])
+{
+	int err = 0;
+	const char *name = argv[1];
+	uint8_t buffer[SETTINGS_MAX_VAL_LEN];
+	int num_read_bytes;
+
+	num_read_bytes = settings_runtime_get(name, buffer, sizeof(buffer));
+
+	if (num_read_bytes < 0) {
+		err = num_read_bytes;
+		shell_error(shell_ptr, "Failed to get runtime setting: %d", err);
+	} else {
+		shell_hexdump(shell_ptr, buffer, num_read_bytes);
+	}
+
+	return err;
+}
+
+static int cmd_runtime_set(const struct shell *shell_ptr, size_t argc, char *argv[])
+{
+	int err;
+	uint8_t buffer[CONFIG_SHELL_CMD_BUFF_SIZE / 2];
+	size_t buffer_len;
+
+	buffer_len = hex2bin(argv[2], strlen(argv[2]), buffer, sizeof(buffer));
+
+	if (buffer_len == 0) {
+		shell_error(shell_ptr, "Failed to parse hex value");
+		return -EINVAL;
+	}
+
+	err = settings_runtime_set(argv[1], buffer, buffer_len);
+
+	if (err) {
+		shell_error(shell_ptr, "Failed to set setting: %d", err);
+	}
+
+	return err;
+}
+
+static int cmd_runtime_commit(const struct shell *shell_ptr, size_t argc, char *argv[])
+{
+	int err;
+	const char *name = argv[1];
+
+	err = settings_runtime_commit(name);
+
+	if (err < 0) {
+		shell_error(shell_ptr, "Failed to commit settings: %d", err);
+	}
+
+	return err;
+}
+
+SHELL_STATIC_SUBCMD_SET_CREATE(settings_runtime_cmds,
+			       SHELL_CMD_ARG(set, NULL, "<name> <hex>", cmd_runtime_set, 3, 0),
+			       SHELL_CMD_ARG(get, NULL, "<name>", cmd_runtime_get, 2, 0),
+			       SHELL_CMD_ARG(commit, NULL, "[<tree>]", cmd_runtime_commit, 1, 1),
+			       SHELL_SUBCMD_SET_END);
+#endif
+
 SHELL_STATIC_SUBCMD_SET_CREATE(settings_cmds,
 			       SHELL_CMD_ARG(list, NULL, "[<subtree>]", cmd_list, 1, 1),
 			       SHELL_CMD_ARG(read, NULL, "<name>", cmd_read, 2, 0),
 			       SHELL_CMD_ARG(write, NULL, "<name> <hex>", cmd_write, 3, 0),
 			       SHELL_CMD_ARG(delete, NULL, "<name>", cmd_delete, 2, 0),
+#if CONFIG_SETTINGS_RUNTIME
+			       SHELL_CMD_ARG(runtime, &settings_runtime_cmds, "Runtime settings", NULL, 0, 0),
+#endif
 			       SHELL_SUBCMD_SET_END);
 
 static int cmd_settings(const struct shell *shell_ptr, size_t argc, char **argv)
